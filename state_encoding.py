@@ -121,3 +121,75 @@ def build_dataset_from_distance_grid(
     y = np.array(y_list, dtype=np.float32)
 
     return X, y
+
+
+def manhattan_distance(a: Tuple[int, int], b: Tuple[int, int]) -> int:
+    """
+    Manhattan distance on grid between points a and b.
+
+    a, b: (x, y)
+    """
+    (x1, y1) = a
+    (x2, y2) = b
+    return abs(x1 - x2) + abs(y1 - y2)
+
+
+def build_residual_dataset_from_distance_grid(
+    maze: np.ndarray,
+    goal_pos: Tuple[int, int],
+    distance_grid: np.ndarray,
+    unreachable_value: int = -1,
+    max_samples: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+
+    H, W = maze.shape
+    if distance_grid.shape != maze.shape:
+        raise ValueError(
+            f"distance_grid shape {distance_grid.shape} must match maze shape {maze.shape}"
+        )
+
+    gx, gy = goal_pos
+    if not (0 <= gx < W and 0 <= gy < H):
+        raise ValueError("Goal position out of bounds in build_residual_dataset_from_distance_grid")
+
+    X_list: List[np.ndarray] = []
+    y_list: List[float] = []
+
+    for y in range(H):
+        for x in range(W):
+            if maze[y, x] == 1:
+                continue
+
+            d = distance_grid[y, x]
+            if d == unreachable_value:
+                continue
+
+            m = manhattan_distance((x, y), (gx, gy))
+            residual = float(d - m)
+            if residual < 0:
+                residual = 0.0
+
+            state = encode_single_state(
+                maze=maze,
+                agent_pos=(x, y),
+                goal_pos=(gx, gy),
+            )
+
+            X_list.append(state)
+            y_list.append(residual)
+
+            if max_samples is not None and len(X_list) >= max_samples:
+                break
+        if max_samples is not None and len(X_list) >= max_samples:
+            break
+
+    if not X_list:
+        raise RuntimeError(
+            "No reachable states found when building residual dataset; "
+            "check BFS result or maze."
+        )
+
+    X = np.stack(X_list, axis=0).astype(np.float32)
+    y = np.array(y_list, dtype=np.float32)
+
+    return X, y
