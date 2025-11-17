@@ -2,7 +2,7 @@ import heapq
 import numpy as np
 import maze_generator
 import torch
-from train_heuristic import load_trained_model, heuristic_fn 
+from train_residual_heuristic import load_trained_model, heuristic_fn 
 
 def manhattan_distance(a, b):
     """
@@ -143,8 +143,10 @@ class LearnedHeuristic:
             
         state_np = self._state_to_numpy(state)
         
-        h_value = heuristic_fn(self.model, self.device, state_np)
-        
+        h_residual = heuristic_fn(self.model, self.device, state_np)
+        h_manhattan = manhattan_distance(state, self.goal)
+        h_value = h_residual + h_manhattan
+
         return h_value
     
 if __name__ == "__main__":
@@ -161,26 +163,62 @@ if __name__ == "__main__":
     # print(path_manhattan)
     # print(f"Expanded Nodes (Manhattan): {expanded_manhattan}")
 
-    print("A* Baseline vs. Learned (15x15 Map)")
-    
-    model_file = "heuristic_cnn.pt"
-    maze_15 = maze_generator.create_maze(15, 15, )
-    start_15 = (0, 0)
-    goal_15 = (14, 14)
-    
-    path_m_15, expanded_m_15 = a_star_search(maze_15, start_15, goal_15, manhattan_distance)
-    while not path_m_15:
-        maze_15 = maze_generator.create_maze(15, 15, )
-        path_m_15, expanded_m_15 = a_star_search(maze_15, start_15, goal_15, manhattan_distance)
-    print(f"\nPath (Manhattan): {len(path_m_15) - 1} steps")
-    print(f"Expanded Nodes (Manhattan): {expanded_m_15}")
 
-    learned_h = LearnedHeuristic(model_path=model_file, maze=maze_15, goal=goal_15)
+    # print("A* Baseline vs. Learned (15x15 Map)")
     
-    path_l_15, expanded_l_15 = a_star_search(maze_15, start_15, goal_15, learned_h)
-    print(f"\nPath (Learned): {len(path_l_15) - 1} steps")
-    print(f"Expanded Nodes (Learned): {expanded_l_15}")
+    # maze_15 = maze_generator.create_maze(MAP_HEIGHT, MAP_WIDTH, )
+    # start_15 = (0, 0)
+    # goal_15 = (14, 14)
+    
+    # path_m_15, expanded_m_15 = a_star_search(maze_15, start_15, goal_15, manhattan_distance)
+    # while not path_m_15:
+    #     maze_15 = maze_generator.create_maze(15, 15, )
+    #     path_m_15, expanded_m_15 = a_star_search(maze_15, start_15, goal_15, manhattan_distance)
+    # print(f"\nPath (Manhattan): {len(path_m_15) - 1} steps")
+    # print(f"Expanded Nodes (Manhattan): {expanded_m_15}")
 
-    print("\nComparison of Expanded Nodes:")
-    print(f"Manhattan: {expanded_m_15} expanded nodes")
-    print(f"Learned:   {expanded_l_15} expanded nodes")
+    # learned_h = LearnedHeuristic(model_path=model_file, maze=maze_15, goal=goal_15)
+    
+    # path_l_15, expanded_l_15 = a_star_search(maze_15, start_15, goal_15, learned_h)
+    # print(f"\nPath (Learned): {len(path_l_15) - 1} steps")
+    # print(f"Expanded Nodes (Learned): {expanded_l_15}")
+
+    # print("\nComparison of Expanded Nodes:")
+    # print(f"Manhattan: {expanded_m_15} expanded nodes")
+    # print(f"Learned:   {expanded_l_15} expanded nodes")
+
+    MAP_WIDTH = 15
+    MAP_HEIGHT = 15
+    NUM_RANDOM_MAPS = 10
+    OBSTACLE_DENSITY = 0.3
+
+    MODEL_FILE = "heuristic.pt"
+
+    print(f"A* Baseline vs. Learned ({MAP_WIDTH}x{MAP_HEIGHT} Map) - {NUM_RANDOM_MAPS} Random Map Average Test\n")
+            
+    manhattan_nodes_list = []
+    learned_nodes_list = []
+    valid_maps_count = 0
+
+    while valid_maps_count < NUM_RANDOM_MAPS:
+        maze = maze_generator.create_maze(MAP_WIDTH, MAP_HEIGHT, OBSTACLE_DENSITY)
+        start = (0, 0)
+        goal = (MAP_WIDTH - 1, MAP_HEIGHT - 1)
+
+        path_m, expanded_m = a_star_search(maze, start, goal, manhattan_distance)
+        
+        learned_h = LearnedHeuristic(model_path=MODEL_FILE, maze=maze, goal=goal)
+        path_l, expanded_l = a_star_search(maze, start, goal, learned_h)
+
+        if path_m and path_l:
+            manhattan_nodes_list.append(expanded_m)
+            learned_nodes_list.append(expanded_l)
+            valid_maps_count += 1
+            print(f"Map #{valid_maps_count} Result: \nManhattan: {expanded_m} nodes | Learned: {expanded_l} nodes")
+
+    avg_m = np.mean(manhattan_nodes_list)
+    avg_l = np.mean(learned_nodes_list)
+    
+    print(f"\nFinal average nodes expanded comparison over {valid_maps_count} maps:")
+    print(f"Average Manhattan Nodes: {avg_m:.2f}")
+    print(f"Average Learned Nodes:   {avg_l:.2f}")
