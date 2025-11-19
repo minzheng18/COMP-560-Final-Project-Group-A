@@ -149,6 +149,29 @@ class LearnedHeuristic:
 
         return h_value
     
+def run_random_comparison(num_maps, height, width, model_file, density=0.3):
+    manhattan_nodes_list = []
+    learned_nodes_list = []
+    valid_maps_count = 0
+
+    while valid_maps_count < num_maps:
+        maze = maze_generator.create_maze(width, height, density)
+        start = (0, 0)
+        goal = (width - 1, height - 1)
+
+        path_m, expanded_m = a_star_search(maze, start, goal, manhattan_distance)
+        
+        learned_h = LearnedHeuristic(model_path=model_file, maze=maze, goal=goal)
+        path_l, expanded_l = a_star_search(maze, start, goal, learned_h)
+
+        if path_m and path_l:
+            manhattan_nodes_list.append(expanded_m)
+            learned_nodes_list.append(expanded_l)
+            valid_maps_count += 1
+            print(f"Map #{valid_maps_count} Result: \nManhattan: {expanded_m} nodes | Learned: {expanded_l} nodes")
+        
+    return manhattan_nodes_list, learned_nodes_list
+    
 if __name__ == "__main__":
     # # Basic Test of A* Baseline with 5x5 Maze
     # print("A* Baseline (Manhattan) Test:")
@@ -196,29 +219,13 @@ if __name__ == "__main__":
 
     print(f"A* Baseline vs. Learned ({MAP_WIDTH}x{MAP_HEIGHT} Map) - {NUM_RANDOM_MAPS} Random Map Average Test\n")
             
-    manhattan_nodes_list = []
-    learned_nodes_list = []
-    valid_maps_count = 0
-
-    while valid_maps_count < NUM_RANDOM_MAPS:
-        maze = maze_generator.create_maze(MAP_WIDTH, MAP_HEIGHT, OBSTACLE_DENSITY)
-        start = (0, 0)
-        goal = (MAP_WIDTH - 1, MAP_HEIGHT - 1)
-
-        path_m, expanded_m = a_star_search(maze, start, goal, manhattan_distance)
-        
-        learned_h = LearnedHeuristic(model_path=MODEL_FILE, maze=maze, goal=goal)
-        path_l, expanded_l = a_star_search(maze, start, goal, learned_h)
-
-        if path_m and path_l:
-            manhattan_nodes_list.append(expanded_m)
-            learned_nodes_list.append(expanded_l)
-            valid_maps_count += 1
-            print(f"Map #{valid_maps_count} Result: \nManhattan: {expanded_m} nodes | Learned: {expanded_l} nodes")
+    manhattan_nodes_list, learned_nodes_list = run_random_comparison(NUM_RANDOM_MAPS, MAP_HEIGHT, MAP_WIDTH, MODEL_FILE, OBSTACLE_DENSITY)
 
     avg_m = np.mean(manhattan_nodes_list)
+    std_m = np.std(manhattan_nodes_list)
     avg_l = np.mean(learned_nodes_list)
+    std_l = np.std(learned_nodes_list)
     
-    print(f"\nFinal average nodes expanded comparison over {valid_maps_count} maps:")
-    print(f"Average Manhattan Nodes: {avg_m:.2f}")
-    print(f"Average Learned Nodes:   {avg_l:.2f}")
+    print(f"\nFinal average nodes expanded comparison over {NUM_RANDOM_MAPS} maps:")
+    print(f"Average Manhattan Nodes: {avg_m:.2f} (Std Dev: {std_m:.2f})")
+    print(f"Average Learned Nodes:   {avg_l:.2f} (Std Dev: {std_l:.2f})")
