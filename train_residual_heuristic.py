@@ -1,28 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Train a CNN-based heuristic function for grid path planning.
 
-Two training modes:
-1. True Distance: h_NN(state) ≈ BFS shortest distance
-2. Residual Mode: h_NN(state) ≈ (distance - Manhattan)
-
-Residual mode prevents the network from learning the full value
-and focuses on local corrections, often leading to better performance
-and stability.
-
-Dataset format (.npz):
-    X: (N, 3, H, W) float32
-    y: (N,) float32 (either distance or residual distance)
-
-Run:
-    python train_residual_heuristic.py \
-        --train dataset_train.npz \
-        --val dataset_val.npz \
-        --epochs 20 \
-        --residual \
-        --save_model heuristic_residual.pt
-"""
 
 import argparse
 import numpy as np
@@ -31,11 +9,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
-
-
-# =========================================================
-# 1. Dataset Loader
-# =========================================================
 
 class GridHeuristicDataset(Dataset):
     def __init__(self, npz_path):
@@ -49,10 +22,6 @@ class GridHeuristicDataset(Dataset):
     def __getitem__(self, idx):
         return torch.from_numpy(self.X[idx]), torch.tensor(self.y[idx])
 
-
-# =========================================================
-# 2. CNN Model
-# =========================================================
 
 class HeuristicCNN(nn.Module):
     def __init__(self, in_channels=3, h=15, w=15):
@@ -82,10 +51,6 @@ class HeuristicCNN(nn.Module):
         feat = feat.view(feat.size(0), -1)
         return self.regressor(feat).squeeze(-1)
 
-
-# =========================================================
-# 3. Train/Eval
-# =========================================================
 
 def train_one_epoch(model, loader, optimizer, criterion, device):
     model.train()
@@ -128,9 +93,6 @@ def eval_model(model, loader, criterion, device):
     return total_loss / n, total_mae / n
 
 
-# =========================================================
-# 4. Inference API for A*
-# =========================================================
 
 def load_trained_model(model_path, h=15, w=15, device=None):
     if device is None:
@@ -148,10 +110,6 @@ def heuristic_fn(model, device, state_np):
         x = x.to(device)
         return float(model(x).item())
 
-
-# =========================================================
-# 5. Main Training Loop
-# =========================================================
 
 def main():
     parser = argparse.ArgumentParser()
@@ -193,9 +151,7 @@ def main():
             torch.save(model.state_dict(), args.save_model)
             print("  -> Saved best model to", args.save_model)
 
-    # ============================================================
-    # Generate histogram and scatter plot
-    # ============================================================
+
     print("\nGenerating evaluation plots ...")
 
     model.eval()
